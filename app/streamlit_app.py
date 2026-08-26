@@ -10,20 +10,25 @@ st.caption("Run an automated security, style & logic review on any public GitHub
 
 import os
 
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+# local
+# BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+
+# production
+BACKEND_URL = st.secrets.get("BACKEND_URL", "http://localhost:8000")
 
 with st.form("review_form"):
     col1, col2 = st.columns(2)
     with col1:
-        owner = st.text_input("Repo owner", placeholder="e.g. octocat")
+        owner = st.text_input("Repo owner", placeholder="e.g. github-name")
     with col2:
-        repo = st.text_input("Repo name", placeholder="e.g. Hello-World")
+        repo = st.text_input("Repo name", placeholder="e.g. repo-name")
 
     pr_number = st.number_input("Pull Request number", min_value=1, step=1)
 
     github_token = st.text_input(
         "Your GitHub token",
         type="password",
+        placeholder="github.com/settings/tokens",
         help="Needs 'repo' scope. Only used for this request, never stored. "
              "Create one at github.com/settings/tokens"
     )
