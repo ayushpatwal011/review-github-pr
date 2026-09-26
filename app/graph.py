@@ -21,26 +21,26 @@ def style_node(state: ReviewState) -> dict:
 def logic_node(state: ReviewState) -> dict:
     return {"logic_result": check_logic(state["diff"])}
 
-def aggregate_node(state: ReviewState) -> dict:
-    all_issues = state["security_result"] + state["style_result"] + state["logic_result"]
-
+def build_comment(all_issues: List[Issue]) -> str:
     if not all_issues:
-        return {
-            "all_issues": [],
-            "final_comment": "## 🤖 Automated Code Review\n\n✅ No issues found. Looks good!"
-        }
+        return "## 🤖 Automated Code Review\n\n✅ No issues found. Looks good!"
 
     emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}
     order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
 
     comment = "## 🤖 Automated Code Review\n\n"
-    for issue in sorted(all_issues, key=lambda i: order[i.severity]):
+    for issue in sorted(all_issues, key=lambda i: order.get(i.severity, 3)):
         comment += (
-            f"{emoji[issue.severity]} **[{issue.severity}]** `Line {issue.line}` "
-            f"({issue.category}) — {issue.message} \n\n "
+            f"{emoji.get(issue.severity, '⚪')} **[{issue.severity}]** `Line {issue.line}` "
+            f"({issue.category}) — {issue.message}\n\n"
         )
 
-    return {"all_issues": all_issues, "final_comment": comment}
+    return comment
+
+
+def aggregate_node(state: ReviewState) -> dict:
+    all_issues = state["security_result"] + state["style_result"] + state["logic_result"]
+    return {"all_issues": all_issues, "final_comment": build_comment(all_issues)}
 
 
 graph = StateGraph(ReviewState)

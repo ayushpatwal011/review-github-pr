@@ -12,18 +12,17 @@ def _headers(token: str | None = None)-> dict :
     "Accept": "application/vnd.github+json"
 }
 
-def get_pr_diff(owner: str, repo: str, pr_number: int, token: str | None = None ) -> str:
+# app/github_client.py
+def get_pr_files(owner: str, repo: str, pr_number: int, token: str | None = None) -> list[dict]:
+    """Returns list of {filename, patch} instead of one big concatenated string."""
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
     response = requests.get(url, headers=_headers(token))
-    response.raise_for_status()  # crashes 
-
+    response.raise_for_status()
     files = response.json()
-    full_diff = ""
-    for file in files:
-        if "patch" in file:  # some files (e.g. binary) have no patch
-            full_diff += f"\n--- {file['filename']} ---\n{file['patch']}\n"
-    return full_diff
-
+    return [
+        {"filename": f["filename"], "patch": f.get("patch", "")}
+        for f in files if "patch" in f
+    ]
 
 def post_pr_comment(owner: str, repo: str, pr_number: int, comment: str,token:str | None = None):
     url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"

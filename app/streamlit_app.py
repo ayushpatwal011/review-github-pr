@@ -1,17 +1,11 @@
 # streamlit_app.py
 import streamlit as st
 import requests
-import os
 
 st.set_page_config(page_title="AI Code Review Agent", page_icon="🤖", layout="centered")
 
 st.title("🤖 AI Code Review Agent")
 st.caption("Run an automated security, style & logic review on any public GitHub pull request.")
-
-import os
-
-# local
-# BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # production
 BACKEND_URL = st.secrets.get("BACKEND_URL", "http://localhost:8000")

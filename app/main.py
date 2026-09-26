@@ -1,10 +1,12 @@
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
-from app.github_client import get_pr_diff, post_pr_comment
-from app.graph import compiled_graph
 import hmac
 import hashlib
 import os
+
+from app.agent import chunk_files
+from app.github_client import get_pr_files, post_pr_comment
+from app.graph import compiled_graph, build_comment
 
 app = FastAPI()
 
@@ -42,14 +44,31 @@ def run_review(diff: str) -> dict:
         "final_comment": ""
     })
 
+def run_review_on_pr(owner: str, repo: str, pr_number: int, token: str | None = None) -> dict:
+    files = get_pr_files(owner, repo, pr_number, token)
+    if not files:
+        return {"final_comment": "No changes to review", "all_issues": []}
+
+    chunks = chunk_files(files)
+    if not chunks:
+        return {"final_comment": "No changes to review", "all_issues": []}
+
+    all_issues = []
+    for chunk_diff in chunks:
+        result = run_review(chunk_diff)
+        all_issues.extend(result.get("all_issues", []))
+
+    # Rebuild one combined comment from merged issues
+    final_comment = build_comment(all_issues)
+    return {"final_comment": final_comment, "all_issues": all_issues}
+
 
 def process_review(owner: str, repo: str, pr_number: int):
     """Runs in the background, after we've already responded to GitHub."""
-    diff = get_pr_diff(owner, repo, pr_number)
-    if not diff.strip():
+    result = run_review_on_pr(owner, repo, pr_number)
+    if not result["all_issues"] and result["final_comment"] == "No changes to review":
         return
 
-    result = run_review(diff)
     post_pr_comment(owner, repo, pr_number, result["final_comment"])
 
 
@@ -82,12 +101,10 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
 
 @app.post("/review")
 def review_code(request: ReviewRequest):
-    diff = get_pr_diff(request.owner, request.repo, request.pr_number, token=request.github_token)
+    result = run_review_on_pr(request.owner, request.repo, request.pr_number, token=request.github_token)
 
-    if not diff.strip():
+    if not result["all_issues"] and result["final_comment"] == "No changes to review":
         return {"message": "No changes found to review"}
-
-    result = run_review(diff)
 
     post_pr_comment(request.owner, request.repo, request.pr_number, result["final_comment"], token=request.github_token)
 
